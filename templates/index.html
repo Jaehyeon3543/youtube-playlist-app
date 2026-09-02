@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}My Playlist - 카테고리{% endblock %}
+{% block content %}
+  <section class="hero">
+    <h1>내 유튜브 플레이리스트</h1>
+    <p>장르별로 좋아하는 유튜브 음악을 모아보세요. 총 <strong>{{ total }}</strong>곡이 저장되어 있어요.</p>
+  </section>
+
+  <section class="genre-grid">
+    {% for g in genres %}
+      <a class="genre-card" href="{{ url_for('genre_view', genre_key=g.key) }}">
+        <div class="genre-card-label">{{ g.label }}</div>
+        <div class="genre-card-count">{{ counts.get(g.key, 0) }}곡</div>
+      </a>
+    {% endfor %}
+  </section>
+{% endblock %}

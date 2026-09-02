@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}My Playlist{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="{{ url_for('index') }}">🎵 My Playlist</a>
+    <nav class="genre-nav">
+      {% for g in genres %}
+        <a href="{{ url_for('genre_view', genre_key=g.key) }}"
+           class="{% if genre_key is defined and genre_key == g.key %}active{% endif %}">
+          {{ g.label }}
+        </a>
+      {% endfor %}
+    </nav>
+  </header>
+
+  <main class="content">
+    {% block content %}{% endblock %}
+  </main>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>
