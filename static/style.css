@@ -184,9 +184,32 @@ a { color: inherit; text-decoration: none; }
   flex-direction: column;
 }
 
-.playlist-panel h2 {
-  font-size: 0.95rem;
+.playlist-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin: 2px 6px 10px;
+}
+
+.playlist-header h2 {
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.toolbar-btn {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.toolbar-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
 }
 
 .playlist-list {
@@ -211,6 +234,14 @@ a { color: inherit; text-decoration: none; }
 
 .playlist-item.active {
   background: rgba(108, 76, 241, 0.12);
+}
+
+.playlist-item[draggable="true"] {
+  cursor: grab;
+}
+
+.playlist-item.dragging {
+  opacity: 0.4;
 }
 
 .playlist-item img {
@@ -260,6 +291,17 @@ a { color: inherit; text-decoration: none; }
 
 .edit-btn:hover,
 .delete-btn:hover { text-decoration: underline; }
+
+.star-btn {
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--muted);
+  padding: 0;
+}
+
+.star-btn.active {
+  color: #e8b73f;
+}
 
 .cancel-link {
   display: inline-block;

@@ -10,6 +10,10 @@
   <header class="topbar">
     <a class="brand" href="{{ url_for('index') }}">🎵 My Playlist</a>
     <nav class="genre-nav">
+      <a href="{{ url_for('favorites_view') }}"
+         class="{% if request.endpoint == 'favorites_view' %}active{% endif %}">
+        즐겨찾기
+      </a>
       {% for g in genres %}
         <a href="{{ url_for('genre_view', genre_key=g.key) }}"
            class="{% if genre_key is defined and genre_key == g.key %}active{% endif %}">

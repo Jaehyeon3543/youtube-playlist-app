@@ -57,11 +57,32 @@ def init_db():
                 title TEXT NOT NULL,
                 video_id TEXT NOT NULL,
                 genre TEXT NOT NULL,
-                created_at TEXT NOT NULL
+                created_at TEXT NOT NULL,
+                position INTEGER NOT NULL DEFAULT 0,
+                is_favorite INTEGER NOT NULL DEFAULT 0
             )
             """
         )
+        columns = {row[1] for row in db.execute("PRAGMA table_info(songs)")}
+        if "position" not in columns:
+            db.execute("ALTER TABLE songs ADD COLUMN position INTEGER NOT NULL DEFAULT 0")
+        if "is_favorite" not in columns:
+            db.execute("ALTER TABLE songs ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0")
+
+        # 기존 데이터(마이그레이션 이전에 추가된 곡)에 순서 값을 채워준다.
+        rows = db.execute(
+            "SELECT id FROM songs WHERE position = 0 ORDER BY created_at ASC, id ASC"
+        ).fetchall()
+        for position, row in enumerate(rows, start=1):
+            db.execute("UPDATE songs SET position = ? WHERE id = ?", (position, row[0]))
         db.commit()
+
+
+def next_position(db, genre_key):
+    row = db.execute(
+        "SELECT COALESCE(MAX(position), 0) + 1 FROM songs WHERE genre = ?", (genre_key,)
+    ).fetchone()
+    return row[0]
 
 
 def extract_video_id(url: str) -> str | None:
@@ -104,13 +125,27 @@ def genre_view(genre_key):
         return redirect(url_for("index"))
     db = get_db()
     songs = db.execute(
-        "SELECT * FROM songs WHERE genre = ? ORDER BY created_at DESC",
+        "SELECT * FROM songs WHERE genre = ? ORDER BY position ASC",
         (genre_key,),
     ).fetchall()
     return render_template(
         "category.html",
         genre_key=genre_key,
         genre_label=GENRE_MAP[genre_key],
+        songs=songs,
+    )
+
+
+@app.route("/favorites")
+def favorites_view():
+    db = get_db()
+    songs = db.execute(
+        "SELECT * FROM songs WHERE is_favorite = 1 ORDER BY genre ASC, position ASC"
+    ).fetchall()
+    return render_template(
+        "category.html",
+        genre_key=None,
+        genre_label="즐겨찾기",
         songs=songs,
     )
 
@@ -128,8 +163,14 @@ def add_song():
     if title and video_id and genre_key in GENRE_MAP:
         db = get_db()
         db.execute(
-            "INSERT INTO songs (title, video_id, genre, created_at) VALUES (?, ?, ?, ?)",
-            (title, video_id, genre_key, datetime.now().isoformat(timespec="seconds")),
+            "INSERT INTO songs (title, video_id, genre, created_at, position) VALUES (?, ?, ?, ?, ?)",
+            (
+                title,
+                video_id,
+                genre_key,
+                datetime.now().isoformat(timespec="seconds"),
+                next_position(db, genre_key),
+            ),
         )
         db.commit()
 
@@ -150,14 +191,46 @@ def edit_song(song_id):
         video_id = extract_video_id(url)
 
         if title and video_id and genre_key in GENRE_MAP:
+            position = (
+                next_position(db, genre_key) if genre_key != song["genre"] else song["position"]
+            )
             db.execute(
-                "UPDATE songs SET title = ?, video_id = ?, genre = ? WHERE id = ?",
-                (title, video_id, genre_key, song_id),
+                "UPDATE songs SET title = ?, video_id = ?, genre = ?, position = ? WHERE id = ?",
+                (title, video_id, genre_key, position, song_id),
             )
             db.commit()
             return redirect(url_for("genre_view", genre_key=genre_key))
 
     return render_template("edit.html", song=song, genre_key=song["genre"])
+
+
+@app.route("/genre/<genre_key>/reorder", methods=["POST"])
+def reorder_songs(genre_key):
+    if genre_key not in GENRE_MAP:
+        return jsonify({"error": "invalid genre"}), 400
+
+    order = (request.get_json(silent=True) or {}).get("order", [])
+    db = get_db()
+    for position, song_id in enumerate(order, start=1):
+        db.execute(
+            "UPDATE songs SET position = ? WHERE id = ? AND genre = ?",
+            (position, song_id, genre_key),
+        )
+    db.commit()
+    return jsonify({"status": "ok"})
+
+
+@app.route("/song/<int:song_id>/favorite", methods=["POST"])
+def toggle_favorite(song_id):
+    db = get_db()
+    song = db.execute("SELECT is_favorite FROM songs WHERE id = ?", (song_id,)).fetchone()
+    if song is None:
+        return jsonify({"error": "not found"}), 404
+
+    new_value = 0 if song["is_favorite"] else 1
+    db.execute("UPDATE songs SET is_favorite = ? WHERE id = ?", (new_value, song_id))
+    db.commit()
+    return jsonify({"is_favorite": bool(new_value)})
 
 
 @app.route("/api/youtube-title")
