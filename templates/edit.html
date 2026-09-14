@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}곡 수정 - My Playlist{% endblock %}
+{% block content %}
+  <section class="category-header">
+    <h1>곡 수정</h1>
+  </section>
+
+  <section class="add-form">
+    <form action="{{ url_for('edit_song', song_id=song.id) }}" method="post">
+      <input type="text" name="title" class="js-title" value="{{ song.title }}" placeholder="곡 제목" required>
+      <input type="url" name="url" class="js-url"
+             value="https://www.youtube.com/watch?v={{ song.video_id }}"
+             placeholder="유튜브 링크 (https://www.youtube.com/watch?v=...)" required>
+      <select name="genre" required>
+        {% for g in genres %}
+          <option value="{{ g.key }}" {% if g.key == song.genre %}selected{% endif %}>{{ g.label }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit">저장</button>
+    </form>
+    <a class="cancel-link" href="{{ url_for('genre_view', genre_key=song.genre) }}">취소하고 돌아가기</a>
+  </section>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{{ url_for('static', filename='title-fetch.js') }}"></script>
+{% endblock %}

@@ -36,7 +36,7 @@ function onYouTubeIframeAPIReady() {
 
 items.forEach((item, index) => {
   item.addEventListener("click", (event) => {
-    if (event.target.closest(".delete-form")) return;
+    if (event.target.closest(".item-actions")) return;
     playIndex(index);
   });
 });

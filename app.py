@@ -3,7 +3,8 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
-from flask import Flask, g, redirect, render_template, request, url_for
+import requests
+from flask import Flask, g, jsonify, redirect, render_template, request, url_for
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "playlist.db"
@@ -68,6 +69,19 @@ def extract_video_id(url: str) -> str | None:
     return match.group(1) if match else None
 
 
+def fetch_youtube_title(video_id: str) -> str:
+    try:
+        resp = requests.get(
+            "https://www.youtube.com/oembed",
+            params={"url": f"https://www.youtube.com/watch?v={video_id}", "format": "json"},
+            timeout=5,
+        )
+        resp.raise_for_status()
+        return resp.json().get("title", "")
+    except requests.RequestException:
+        return ""
+
+
 @app.context_processor
 def inject_globals():
     return {"genres": GENRES}
@@ -108,6 +122,8 @@ def add_song():
     genre_key = request.form.get("genre", "").strip()
 
     video_id = extract_video_id(url)
+    if not title and video_id:
+        title = fetch_youtube_title(video_id)
 
     if title and video_id and genre_key in GENRE_MAP:
         db = get_db()
@@ -118,6 +134,43 @@ def add_song():
         db.commit()
 
     return redirect(url_for("genre_view", genre_key=genre_key or "etc"))
+
+
+@app.route("/song/<int:song_id>/edit", methods=["GET", "POST"])
+def edit_song(song_id):
+    db = get_db()
+    song = db.execute("SELECT * FROM songs WHERE id = ?", (song_id,)).fetchone()
+    if song is None:
+        return redirect(url_for("index"))
+
+    if request.method == "POST":
+        title = request.form.get("title", "").strip()
+        url = request.form.get("url", "").strip()
+        genre_key = request.form.get("genre", "").strip()
+        video_id = extract_video_id(url)
+
+        if title and video_id and genre_key in GENRE_MAP:
+            db.execute(
+                "UPDATE songs SET title = ?, video_id = ?, genre = ? WHERE id = ?",
+                (title, video_id, genre_key, song_id),
+            )
+            db.commit()
+            return redirect(url_for("genre_view", genre_key=genre_key))
+
+    return render_template("edit.html", song=song, genre_key=song["genre"])
+
+
+@app.route("/api/youtube-title")
+def youtube_title():
+    video_id = extract_video_id(request.args.get("url", ""))
+    if not video_id:
+        return jsonify({"error": "invalid url"}), 400
+
+    title = fetch_youtube_title(video_id)
+    if not title:
+        return jsonify({"error": "lookup failed"}), 502
+
+    return jsonify({"title": title})
 
 
 @app.route("/delete/<int:song_id>", methods=["POST"])
